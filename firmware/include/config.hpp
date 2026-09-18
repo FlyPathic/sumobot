@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <Adafruit_BMP280.h>
 
+
 namespace sumo::pins
 {
     // ====================================================
@@ -31,5 +32,17 @@ namespace sumo::config
     constexpr Adafruit_BMP280::sensor_sampling   BMP_PRESSURE_SAMPLING  = Adafruit_BMP280::sensor_sampling::SAMPLING_X16;
     constexpr Adafruit_BMP280::sensor_filter     BMP_FILTERING          = Adafruit_BMP280::sensor_filter::FILTER_X16;
     constexpr Adafruit_BMP280::standby_duration  BMP_STANDBY_DURATION   = Adafruit_BMP280::standby_duration::STANDBY_MS_500;
+
+    // ----- ESC control timing -----
+
+    const uint16_t IMPELLER_STOP_THROTTLE = 1000;
+    const uint16_t IMPELLER_START_THROTTLE = 1600;
+    const uint16_t IMPELLER_MAX_THROTTLE = 2000;
+    
+    // ----- ESC control config -----
+
+    const uint16_t THROTTLE_RAMP_RATE = 5; // How quickly the throttle reaches the setpoint as % / Second
+
+    constexpr uint32_t IMPELLER_ARM_TIME_MS = 3000;
 
 } // namespace sumo::config
