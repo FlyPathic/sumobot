@@ -27,8 +27,6 @@ namespace sumo
             if (!status)
             {
                 Serial.println("[Pump] Could not connect to BMP external.");
-                while (1)
-                    delay(10);
             }
             else
             {
@@ -47,8 +45,6 @@ namespace sumo
             if (!status)
             {
                 Serial.println("[Pump] Could not connect to BMP internal.");
-                while (1)
-                    delay(10);
             }
             else
             {
@@ -59,6 +55,17 @@ namespace sumo
                                          config::BMP_FILTERING,
                                          config::BMP_STANDBY_DURATION);
             }
+
+            float ext_pressure = bmp_external.readPressure();
+            float int_pressure = bmp_internal.readPressure();
+
+            internal_pressure_offset = ext_pressure - int_pressure;
+
+            Serial.print("[Pump] Normalizing pressure to: ");
+            Serial.print(ext_pressure);
+            Serial.print(" Pa (");
+            Serial.print(internal_pressure_offset);
+            Serial.println(" offset) Pa");
 
             // ===============================================
             //                  ESC setup
@@ -91,9 +98,33 @@ namespace sumo
         /// @brief Sets the target throttle.
         /// @param throttle The target throttle value.
         /// @note Actual throttle remains at 0 until the ESC arming delay has elapsed.
-        void set_throttle(float throttle)
+        void set_throttle(const float throttle)
         {
             esc_setpoint = constrain(throttle, 0.0F, 1.0F);
+        }
+
+        /// @brief Gets the actual throttle sent to the ESC.
+        /// @return Actual throttle.
+        float get_actual_throttle() const
+        {
+            return esc_current;
+        }
+
+        /// @brief Gets the actual throttle's pwm frequency.
+        /// @return Frequency in microseconds
+        uint16_t get_us() const
+        {
+            return throttle_to_us(esc_current);
+        }
+
+        /// @brief Gets the pressure differential between the internal and external sensor.
+        /// @return Pressure differential in pascals.
+        float get_pressure_differential()
+        {
+            float ext_pressure = bmp_external.readPressure();
+            float int_pressure = bmp_internal.readPressure() + internal_pressure_offset;
+
+            return ext_pressure - int_pressure;
         }
 
         /// @brief Handles internal state keeping; moves actual throttle towards the setpoint.
@@ -168,7 +199,6 @@ namespace sumo
         }
 
     private:
-
         int64_t last_update_us = 0;
         int64_t esc_arm_start_us = 0;
 
@@ -181,6 +211,8 @@ namespace sumo
         bool external_bmp_ready = false;
         bool internal_bmp_ready = false;
 
+        float internal_pressure_offset = 0.0F;
+
         Servo esc;
 
         float esc_setpoint = 0.0F;
@@ -189,26 +221,21 @@ namespace sumo
         bool esc_armed = false;
 
     private:
+        uint16_t throttle_to_us(const float throttle) const
+        {
+            if (throttle <= 0.0F)
+                return config::IMPELLER_STOP_THROTTLE;
+
+            return static_cast<uint16_t>(
+                config::IMPELLER_START_THROTTLE +
+                throttle *
+                    (config::IMPELLER_MAX_THROTTLE -
+                     config::IMPELLER_START_THROTTLE));
+        }
 
         void write_esc(float throttle)
         {
-            uint16_t throttle_us;
-
-            if (throttle == 0)
-            {
-                throttle_us = config::IMPELLER_STOP_THROTTLE;
-            }
-            else
-            {
-                throttle_us = map(
-                    throttle,
-                    0.0F,
-                    1.0F,
-                    config::IMPELLER_START_THROTTLE,
-                    config::IMPELLER_MAX_THROTTLE);
-            }
-
-            esc.writeMicroseconds(throttle_us);
+            esc.writeMicroseconds(throttle_to_us(throttle));
         }
     };
 }
